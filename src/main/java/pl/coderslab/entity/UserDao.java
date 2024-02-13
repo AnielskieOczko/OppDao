@@ -6,6 +6,7 @@ import java.sql.*;
 import java.util.Arrays;
 
 import static pl.coderslab.DbUtil.getConnection;
+import static pl.coderslab.Util.getDataFromUser;
 
 public class UserDao {
 
@@ -27,10 +28,7 @@ public class UserDao {
             WHERE id = ?;
             """;
     private static final String DELETE_USER_BY_ID = """
-            UPDATE users
-            SET username = ?,
-                email = ?,
-                password = ?
+            DELETE FROM users
             WHERE id = ?;
             """;
     private static final String GET_ALL_USERS = """
@@ -38,7 +36,7 @@ public class UserDao {
             FROM users;
             """;
 
-    public User create(User user) throws SQLException {
+    public User create(User user) {
         try (Connection conn = getConnection()) {
             PreparedStatement statement = conn.prepareStatement(CREATE_USER_QUERY, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, user.getUserName());
@@ -64,29 +62,37 @@ public class UserDao {
             statement.executeQuery();
 
             ResultSet resultSet = statement.getResultSet();
-            User user = new User();
+
             while (resultSet.next()) {
+                User user = new User();
                 user.setId(resultSet.getInt("id"));
                 user.setUserName(resultSet.getString("username"));
                 user.setEmail(resultSet.getString("email"));
                 user.setPassword(resultSet.getString("password"));
+                return user;
             }
-            return user;
+
         } catch (SQLException ex) {
             ex.printStackTrace();
             return null;
         }
+        return null;
     }
 
     public void update(User user) throws SQLException {
         try (Connection conn = getConnection()) {
             PreparedStatement statement = conn.prepareStatement(UPDATE_USER_BY_ID);
-            statement.setString(1,user.getUserName());
-            statement.setString(2, user.getEmail());
-            statement.setString(3,hashPassword(user.getPassword()));
+            statement.setString(1,getDataFromUser("Please provide new user name:"));
+            statement.setString(2, getDataFromUser("Please provide new email:"));
+            statement.setString(3,hashPassword(getDataFromUser("Please provide new password:")));
             statement.setInt(4,user.getId());
-            statement.executeUpdate();
-            System.out.printf("User with id %s successfully updated%n", user.getId());
+            int check = statement.executeUpdate();
+
+            if (check == 1) {
+                System.out.printf("[UPDATE] User with id %s successfully updated%n", user.getId());
+            } else {
+                System.out.printf("[UPDATE] User with id %s not found in DB%n", user.getId());
+            }
 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -97,7 +103,12 @@ public class UserDao {
         try(Connection conn = getConnection()) {
             PreparedStatement statement = conn.prepareStatement(DELETE_USER_BY_ID);
             statement.setInt(1, userId);
-            statement.executeUpdate();
+            int check = statement.executeUpdate();
+            if (check == 1) {
+                System.out.printf("[DELETE] User with id %s successfully deleted%n", userId);
+            } else {
+                System.out.printf("[DELETE] User with id %s does not exist%n", userId);
+            }
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
